@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const authMiddleware = async (req,res,next) =>{
+const chkUser = async (req,res,next) =>{
     try{
         const token = req.cookies.access_token;
 
@@ -19,11 +19,16 @@ const authMiddleware = async (req,res,next) =>{
         next();
     }
     catch(err){
-        console.error(err);
+        console.error(err.message);
         return res.status(500).json({message:"Internal Server Error",error:err.message});
     }
 }
 
 
 
-module.exports = {authMiddleware};
+
+
+
+
+
+module.exports = {chkUser};

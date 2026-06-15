@@ -23,6 +23,11 @@ const universityAccountSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema(
   {
     // Basic Information
+    profileImage: {
+      type: String,
+      default: null
+    }
+    ,
     firstName: {
       type: String,
       required: true,
@@ -58,7 +63,9 @@ const userSchema = new mongoose.Schema(
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "School",
-      required: true,
+      required: function () {
+        return !this.roles?.includes("superAdmin");
+      }
     },
 
     programId: {
@@ -84,7 +91,7 @@ const userSchema = new mongoose.Schema(
       ],
       required: true,
       validate: {
-        validator: (roles) => roles.length > 0,
+        validator: (roles) => Array.isArray(roles) && roles.length > 0,
         message: "At least one role is required",
       },
     },
@@ -99,7 +106,7 @@ const userSchema = new mongoose.Schema(
     // Authentication
     password: {
       type: String,
-      default: null,
+      select: false
     },
 
     isEmailVerified: {
@@ -114,10 +121,12 @@ const userSchema = new mongoose.Schema(
 
     setupToken: {
       type: String,
+      select: false
     },
 
     setupTokenExpiry: {
       type: Date,
+      select: false,
     },
 
     // Audit Fields
@@ -133,6 +142,16 @@ const userSchema = new mongoose.Schema(
 
     lastLogin: {
       type: Date,
+    },
+
+    passwordResetToken: {
+      type: String,
+      select: false
+    },
+
+    passwordResetTokenExpiry: {
+      type: Date,
+      select: false
     },
 
     passwordChangedAt: {

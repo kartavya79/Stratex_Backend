@@ -4,7 +4,6 @@ const programSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
-        unique: true,
         trim: true
     },
     schoolId: {
@@ -21,19 +20,28 @@ const programSchema = new mongoose.Schema({
     duration: String,
 
     degreeType: {
-      type: String,
-      enum: [
-        "UG",
-        "PG",
-        "Diploma",
-        "PhD"
-      ]
+        type: String,
+        enum: [
+            "UG",
+            "PG",
+            "Diploma",
+            "PhD"
+        ]
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 },
-{
-    timestamps: true    
+    {
+        timestamps: true
 
-});
+    });
 
 const programModel = mongoose.model('Program', programSchema);
 
