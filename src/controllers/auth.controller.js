@@ -4,7 +4,8 @@ const schoolModel = require("../models/school.model");
 const programModel = require("../models/program.model");
 const specializationModel = require('../models/specelization.model');
 const auditLogModel = require('../models/auditlog.model');
-const UploadFiles = require("../services/storage.service");
+const jwt = require('jsonwebtoken')
+const { UploadFiles } = require("../services/storage.service");
 const sendSetupEmail = require("../services/email.service");
 
 require('dotenv').config();
@@ -19,6 +20,7 @@ const registerUser = async (req, res) => {
             personalEmail,
             universityAccount,
             roles,
+            status,
             schoolId,
             academicAssignments
         } = req.body;
@@ -37,6 +39,13 @@ const registerUser = async (req, res) => {
             });
         }
 
+        const allowedStatus = ["active", "inactive","suspended"];
+
+        if (status && !allowedStatus.includes(status)) {
+            return res.status(400).json({
+                message: "Invalid status"
+            });
+        }
 
 
         if (
@@ -359,6 +368,7 @@ const registerUser = async (req, res) => {
             personalEmail,
             universityAccount,
             roles,
+            status:status?status:"inactive",
             schoolId,
             academicAssignments,
             setupToken: hashedToken,
@@ -473,11 +483,10 @@ const registerUser = async (req, res) => {
 
 
 
+const loginUser = async (req,res) =>{
 
-const createSpecialization = async (req, res) => { }
+    const {}
 
-const createProgram = async (req, res) => { }
 
-const createSchool = async (req, res) => { }
-
-module.exports = { register: registerUser, createSpecialization, createProgram, createSchool };
+}
+module.exports = { register: registerUser ,login : registerUser};

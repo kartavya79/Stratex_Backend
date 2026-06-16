@@ -28,7 +28,4 @@ const chkUser = async (req,res,next) =>{
 
 
 
-
-
-
 module.exports = {chkUser};

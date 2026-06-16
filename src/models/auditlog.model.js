@@ -25,7 +25,10 @@ const auditLogSchema = new mongoose.Schema(
         "EMAIL_FAILED",
         "EMAIL_SENT",
         "ACCOUNT_CREATION_FAILED",
-        "UNAUTHORIZED_CREATE_ATTEMPT"
+        "UNAUTHORIZED_CREATE_ATTEMPT",
+        "PROGRAM_CREATION_FAILED",
+        "SPECIALIZATION_CREATION_FAILED"
+        
       ]
     },
 
@@ -47,7 +50,6 @@ const auditLogSchema = new mongoose.Schema(
     // ID of affected document
     targetId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true
     },
 
     // Human-readable title

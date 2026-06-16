@@ -4,7 +4,7 @@ const imagekitClient = new ImageKit({
     privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
 })
 
-const UploadFile = async (fileBuffer,originalName) => {
+const UploadProfile = async (fileBuffer, originalName) => {
     try {
         const extension = originalName.split('.').pop();
 
@@ -21,5 +21,25 @@ const UploadFile = async (fileBuffer,originalName) => {
     }
 }
 
+const schoolImg = async (fileBuffer, originalName, slug, typeOf) => {
 
-module.exports = UploadFile
+    try {
+        const extension = originalName.split('.').pop();
+
+        return await imagekitClient.files.upload({
+            file: fileBuffer.toString("base64"),
+            fileName: `${slug}-${Date.now()}.${extension}`,
+            folder: typeOf === "logo"
+                ? "/acadmics/SchoolLogos"
+                : "/acadmics/SchoolBanners",
+
+        });
+        return response
+    }
+    catch (err) {
+        console.error("Error uploading image:", err.message);
+        throw err;
+    }
+
+}
+module.exports = { UploadFiles: UploadProfile, schoolImg }
