@@ -43,7 +43,8 @@ const auditLogSchema = new mongoose.Schema(
         "Specialization",
         "Notice",
         "Event",
-        "Resource"
+        "Resource",
+        "Subject"
       ]
     },
 

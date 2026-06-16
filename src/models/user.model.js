@@ -31,8 +31,17 @@ const academicAssignmentSchema =
     specializationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Specialization"
-    }
+    },
+
+    assignedSubjects: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Subject"
+      }
+    ]
   }, { _id: false });
+
+
 
 const userSchema = new mongoose.Schema(
   {
@@ -76,8 +85,8 @@ const userSchema = new mongoose.Schema(
     // Academic Mapping
 
     academicAssignments: {
-      type:[academicAssignmentSchema],
-      default:[]
+      type: [academicAssignmentSchema],
+      default: []
     },
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,

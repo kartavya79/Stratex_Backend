@@ -485,7 +485,7 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req,res) =>{
 
-    const {}
+    const {personalEmail,universityAccount,password} = req.body;
 
 
 }
