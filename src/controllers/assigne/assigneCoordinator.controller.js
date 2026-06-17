@@ -1,0 +1,169 @@
+const subjectModel = require("../../models/subject.model");
+const userModel = require("../../models/user.model");
+const auditLogModel = require("../../models/auditlog.model");
+
+const assignCoordinatorToSubject = async (req, res) => {
+    try {
+
+        const { subjectId } = req.params;
+        const { coordinatorId } = req.body;
+
+        // Authorization
+        const allowedRoles = [
+            "superAdmin",
+            "schoolAdmin"
+        ];
+
+        if (
+            !req.user.roles.some(role =>
+                allowedRoles.includes(role)
+            )
+        ) {
+
+            await auditLogModel.create({
+                performedBy: req.user?._id,
+                action: "UNAUTHORIZED_CREATE_ATTEMPT",
+                module: "Subject",
+                remarks: "Unauthorized coordinator assignment attempt",
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]
+            });
+
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        if (!coordinatorId) {
+            return res.status(400).json({
+                message: "Coordinator ID is required"
+            });
+        }
+
+        // Subject Validation
+        const subject = await subjectModel.findById(subjectId);
+
+        if (!subject) {
+            return res.status(404).json({
+                message: "Subject not found"
+            });
+        }
+
+        // Coordinator Validation
+        const coordinator =
+            await userModel.findById(coordinatorId);
+
+        if (!coordinator) {
+            return res.status(404).json({
+                message: "Coordinator not found"
+            });
+        }
+
+        if (
+            !coordinator.roles.includes("coordinator")
+        ) {
+            return res.status(400).json({
+                message:
+                    "User does not have coordinator role"
+            });
+        }
+
+        // Coordinator must also be faculty
+        if (
+            !coordinator.roles.includes("faculty")
+        ) {
+            return res.status(400).json({
+                message:
+                    "Coordinator must also have faculty role"
+            });
+        }
+
+        // Same School Validation
+        if (
+            coordinator.schoolId.toString() !==
+            subject.schoolId.toString()
+        ) {
+            return res.status(400).json({
+                message:
+                    "Coordinator belongs to another school"
+            });
+        }
+
+        // Must already be assigned as faculty
+        const isFacultyAssigned =
+            subject.facultyIds.some(
+                facultyId =>
+                    facultyId.toString() ===
+                    coordinatorId.toString()
+            );
+
+        if (!isFacultyAssigned) {
+            return res.status(400).json({
+                message:
+                    "Coordinator must first be assigned as faculty to this subject"
+            });
+        }
+
+        if (
+            subject.coordinatorId &&
+            subject.coordinatorId.toString() ===
+            coordinatorId.toString()
+        ) {
+            return res.status(400).json({
+                message:
+                    "User is already the coordinator of this subject"
+            });
+        }
+
+        // Assign Coordinator
+        subject.coordinatorId = coordinatorId;
+        subject.updatedBy = req.user._id;
+
+        await subject.save();
+
+        await auditLogModel.create({
+            performedBy: req.user._id,
+            action: "UPDATE",
+            module: "Subject",
+            targetId: subject._id,
+            targetName: subject.name,
+            remarks: `Coordinator assigned successfully`,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"]
+        });
+
+        return res.status(200).json({
+            message:
+                "Coordinator assigned successfully",
+            subject
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        try {
+
+            await auditLogModel.create({
+                performedBy: req.user?._id,
+                action: "COORDINATOR_ASSIGNMENT_FAILED",
+                module: "Subject",
+                targetId: req.params?.subjectId,
+                remarks: err.message,
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]
+            });
+
+        } catch (auditErr) {
+            console.error(auditErr);
+        }
+
+        return res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};
+
+module.exports = {
+    assignCoordinatorToSubject
+};

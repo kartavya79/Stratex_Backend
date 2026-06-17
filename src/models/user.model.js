@@ -30,7 +30,8 @@ const academicAssignmentSchema =
 
     specializationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Specialization"
+      ref: "Specialization",
+      default: null
     },
     semesterId: {
       type: mongoose.Schema.Types.ObjectId,

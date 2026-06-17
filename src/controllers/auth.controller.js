@@ -252,7 +252,8 @@ const registerUser = async (req, res) => {
 
             if (academicAssignments.length !== 1) {
                 return res.status(400).json({
-                    message: "Student must belong to exactly one academic assignment"
+                    message:
+                        "Student must belong to exactly one academic assignment"
                 });
             }
 
@@ -260,12 +261,11 @@ const registerUser = async (req, res) => {
 
             if (
                 !assignment.programId ||
-                !assignment.specializationId ||
                 !assignment.semesterId
             ) {
                 return res.status(400).json({
                     message:
-                        "Student must have program, specialization and semester assigned"
+                        "Student must have program and semester assigned"
                 });
             }
         }

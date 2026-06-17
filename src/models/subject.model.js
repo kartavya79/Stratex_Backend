@@ -77,6 +77,17 @@ const subjectSchema = new mongoose.Schema(
         timestamps: true
     }
 );
+subjectSchema.index({
+    semesterId: 1
+});
+
+subjectSchema.index({
+    coordinatorId: 1
+});
+
+subjectSchema.index({
+    facultyIds: 1
+});
 
 subjectSchema.index(
     {
@@ -87,23 +98,6 @@ subjectSchema.index(
         unique: true
     }
 );
-
-
-subjectSchema.index({
-    schoolId: 1
-});
-
-subjectSchema.index({
-    programId: 1
-});
-
-subjectSchema.index({
-    specializationId: 1
-});
-
-subjectSchema.index({
-    semesterId: 1
-});
 
 module.exports =
     mongoose.model("Subject", subjectSchema);
