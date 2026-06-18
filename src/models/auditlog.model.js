@@ -34,7 +34,8 @@ const auditLogSchema = new mongoose.Schema(
         "FACULTY_REMOVAL_FAILED",
         "COORDINATOR_ASSIGNMENT_FAILED",
         "COORDINATOR_REMOVAL_FAILED",
-        "SUBJECT_DELETE_FAILED"
+        "SUBJECT_DELETE_FAILED",
+        "LOGIN_FAILED"
         
       ]
     },

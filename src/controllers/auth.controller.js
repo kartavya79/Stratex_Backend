@@ -4,7 +4,6 @@ const schoolModel = require("../models/school.model");
 const programModel = require("../models/program.model");
 const specializationModel = require('../models/specelization.model');
 const auditLogModel = require('../models/auditlog.model');
-const jwt = require('jsonwebtoken')
 const { UploadFiles } = require("../services/storage.service");
 const sendSetupEmail = require("../services/email.service");
 
@@ -546,13 +545,150 @@ const registerUser = async (req, res) => {
 }
 
 
+const jwt = require('jsonwebtoken')
 
 const loginUser = async (req, res) => {
+    try {
 
-    const { personalEmail, universityAccount, password } = req.body;
+        const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and password are required"
+            });
+        }
 
-}
+        const user = await userModel
+            .findOne({
+                $or: [
+                    {
+                        personalEmail:
+                            email.toLowerCase().trim()
+                    },
+                    {
+                        "universityAccount.universityEmail":
+                            email.toLowerCase().trim()
+                    }
+                ]
+            })
+            .select("+password");
+
+        if (!user) {
+
+            await auditLogModel.create({
+                action: "LOGIN_FAILED",
+                module: "Auth",
+                remarks: `Login failed for email: ${email}`,
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]
+            });
+
+            return res.status(401).json({
+                success: false,
+                message: "Invalid credentials"
+            });
+        }
+
+        if (user.status !== "active") {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Your account has been deactivated. Contact administrator."
+            });
+        }
+
+        const isPasswordMatched =
+            await bcrypt.compare(
+                password,
+                user.password
+            );
+
+        if (!isPasswordMatched) {
+
+            await auditLogModel.create({
+                performedBy: user._id,
+                action: "LOGIN_FAILED",
+                module: "Auth",
+                remarks: "Invalid password",
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]
+            });
+
+            return res.status(401).json({
+                success: false,
+                message: "Invalid credentials"
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                userId: user._id,
+                roles: user.roles,
+                schoolId: user.schoolId
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
+
+        user.lastLogin = new Date();
+        await user.save();
+
+        await auditLogModel.create({
+            performedBy: user._id,
+            action: "LOGIN",
+            module: "Auth",
+            remarks: "User logged in successfully",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"]
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Login successful",
+
+            token,
+
+            user: {
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                fullName: user.fullName, // virtual
+
+                personalEmail: user.personalEmail,
+
+                universityEmail:
+                    user.universityAccount?.universityEmail,
+
+                roles: user.roles,
+
+                primaryRole: user.roles[0],
+
+                mustChangePassword:
+                    user.mustChangePassword,
+
+                schoolId: user.schoolId,
+
+                profilePicture:
+                    user.profilePicture,
+
+                status: user.status
+            }
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
 module.exports = {
     register: registerUser,
     login: loginUser
