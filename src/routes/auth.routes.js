@@ -16,6 +16,10 @@ const upload = multer({
 
 router.post('/register',upload.single("profile"),authMiddleware.chkUser, authController.register);
 
-router.post('/login',authController.login)
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+router.get('/me', authMiddleware.chkUser, authController.getMe);
+router.post('/setup-password', authController.setupPassword);
+
 
 module.exports = router;

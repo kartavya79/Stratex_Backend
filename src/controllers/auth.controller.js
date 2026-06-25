@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const userModel = require('../models/user.model');
 const schoolModel = require("../models/school.model");
+const semesterModel = require("../models/semester.model")
 const programModel = require("../models/program.model");
 const specializationModel = require('../models/specelization.model');
 const auditLogModel = require('../models/auditlog.model');
@@ -514,7 +515,7 @@ const registerUser = async (req, res) => {
                         profileImage: null
                     };
                 }),
-                { session ,ordered: true}
+                { session, ordered: true }
             );
 
             for (let i = 0; i < users.length; i++) {
@@ -642,7 +643,6 @@ const registerUser = async (req, res) => {
     }
 }
 
-
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const loginUser = async (req, res) => {
@@ -732,10 +732,10 @@ const loginUser = async (req, res) => {
         );
 
         res.cookie("access_token", token, {
-            httpOnly: true, // prevents JavaScript access
-            // secure: process.env.NODE_ENV === "production", // HTTPS only in production
-            sameSite: "strict", // CSRF protection
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
         user.lastLogin = new Date();
@@ -794,7 +794,103 @@ const loginUser = async (req, res) => {
     }
 };
 
+
+const getMe = async (req, res) => {
+    const user = req.authUser;
+
+    if (!user) {
+        return res.status(401).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+
+    return res.status(200).json(user);
+};
+
+
+const logout = (req, res) => {
+    res.clearCookie("access_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: "Logged out"
+    });
+};
+
+const setupPassword = async (req, res) => {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({
+                message: "Token and password are required"
+            });
+        }
+
+        if (password.length < 8) {
+            return res.status(400).json({
+                message: "Password must be at least 8 characters"
+            });
+        }
+
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const user = await userModel
+            .findOne({
+                setupToken: hashedToken,
+                setupTokenExpiry: { $gt: Date.now() }
+            })
+            .select("+password +setupToken +setupTokenExpiry");
+
+        if (!user) {
+            return res.status(400).json({
+                message: "Invalid or expired setup token"
+            });
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        user.setupToken = undefined;
+        user.setupTokenExpiry = undefined;
+        user.mustChangePassword = false;
+        user.isEmailVerified = true;
+        user.status = "active";
+        user.passwordChangedAt = new Date();
+
+        await user.save();
+
+        await auditLogModel.create({
+            performedBy: user._id,
+            action: "SETUP_PASSWORD",
+            module: "Auth",
+            remarks: "User completed password setup",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"]
+        });
+
+        return res.status(200).json({
+            message: "Password setup completed"
+        });
+    } catch (err) {
+        console.error(err);
+
+        return res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};
+
 module.exports = {
     register: registerUser,
-    login: loginUser
+    login: loginUser,
+    getMe,
+    logout,
+    setupPassword
 };

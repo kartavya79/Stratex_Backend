@@ -113,6 +113,11 @@ const createSubject = async (req, res) => {
         }
 
         const semester = await semesterModel.findById(semesterId);
+        if (!semester) {
+            return res.status(404).json({
+                message: "Semester not found"
+            });
+        }
 
         if (
             semester.programId.toString() !==
@@ -121,12 +126,6 @@ const createSubject = async (req, res) => {
             return res.status(400).json({
                 message:
                     "Semester does not belong to selected program"
-            });
-        }
-
-        if (!semester) {
-            return res.status(404).json({
-                message: "Semester not found"
             });
         }
 

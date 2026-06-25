@@ -1,17 +1,26 @@
 const userModel = require("../../models/user.model");
+const { sendError, sendSuccess } = require("../../utils/apiResponse");
+const {
+    buildPagination,
+    buildPaginationMeta,
+    buildSearchFilter,
+    buildSort,
+    normalizeObjectIdFilter,
+} = require("../../utils/queryHelper");
 
 const getUsers = async (req, res) => {
     try {
 
         const {
             role,
+            school,
             schoolId,
+            program,
             programId,
+            specialization,
             specializationId,
             semesterId,
             status,
-            page = 1,
-            limit = 10
         } = req.query;
 
         const filter = {};
@@ -22,8 +31,8 @@ const getUsers = async (req, res) => {
         }
 
         // School Filter
-        if (schoolId) {
-            filter.schoolId = schoolId;
+        if (school || schoolId) {
+            filter.schoolId = normalizeObjectIdFilter(school || schoolId);
         }
 
         // Status Filter
@@ -32,25 +41,42 @@ const getUsers = async (req, res) => {
         }
 
         // Academic Assignment Filters
-        if (programId) {
+        if (program || programId) {
             filter["academicAssignments.programId"] =
-                programId;
+                normalizeObjectIdFilter(program || programId);
         }
 
-        if (specializationId) {
+        if (specialization || specializationId) {
             filter[
                 "academicAssignments.specializationId"
-            ] = specializationId;
+            ] = normalizeObjectIdFilter(specialization || specializationId);
         }
 
         if (semesterId) {
             filter[
                 "academicAssignments.semesterId"
-            ] = semesterId;
+            ] = normalizeObjectIdFilter(semesterId);
         }
 
-        const pageNum = Number(page);
-        const limitNum = Number(limit);
+        Object.assign(filter, buildSearchFilter(req.query.search, [
+            "firstName",
+            "middleName",
+            "lastName",
+            "personalEmail",
+            "universityAccount.universityEmail",
+            "universityAccount.institutionId",
+        ]));
+
+        const { page, limit, skip } = buildPagination(req.query);
+        const sort = buildSort(req.query, [
+            "firstName",
+            "lastName",
+            "personalEmail",
+            "status",
+            "createdAt",
+            "updatedAt",
+            "lastLogin",
+        ]);
 
         const users = await userModel
             .find(filter)
@@ -82,29 +108,33 @@ const getUsers = async (req, res) => {
                 "firstName lastName"
             )
             .sort({
-                createdAt: -1
+                ...sort
             })
-            .skip((pageNum - 1) * limitNum)
-            .limit(limitNum);
+            .skip(skip)
+            .limit(limit);
 
         const total =
             await userModel.countDocuments(filter);
-
-        return res.status(200).json({
+        const pagination = buildPaginationMeta({
+            page,
+            limit,
             total,
-            page: pageNum,
-            limit: limitNum,
             count: users.length,
-            users
         });
+
+        return sendSuccess(
+            res,
+            200,
+            "Users fetched successfully",
+            users,
+            pagination
+        );
 
     } catch (err) {
 
         console.error(err);
 
-        return res.status(500).json({
-            message: "Internal Server Error"
-        });
+        return sendError(res, 500, "Internal Server Error");
     }
 };
 

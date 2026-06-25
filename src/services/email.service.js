@@ -1,24 +1,28 @@
 const nodemailer = require("nodemailer");
-require("dotenv").config()
-// Create Transporter
-const transporter = nodemailer.createTransport({
-    // service: "gmail",
-    host: "smtp.ethereal.email",
-    port: 587,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../../.env") })
 
-// Verify Transporter
-transporter.verify((error, success) => {
-    if (error) {
-        console.error(" Email transporter error:", error);
-    } else {
-        console.log(" Email server is ready to send messages");
+let transporter;
+
+const getTransporter = () => {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error("Email credentials missing in .env");
     }
-});
+
+    if (!transporter) {
+        transporter = nodemailer.createTransport({
+            host: process.env.EMAIL_HOST || "smtp.ethereal.email",
+            port: Number(process.env.EMAIL_PORT || 587),
+            secure: process.env.EMAIL_SECURE === "true",
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+    }
+
+    return transporter;
+};
 
 const sendSetupEmail = async (
     emails,
@@ -27,16 +31,8 @@ const sendSetupEmail = async (
 ) => {
     try {
         const fallbackURL = setupLink;
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            throw new Error("Email credentials missing in .env");
-        }
-        console.log({
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS ? "OK" : "MISSING",
-            emails
-        });
-        const info = await transporter.sendMail({
-            from: `"Stratex" <${process.env.EMAIL_USER}>`,
+        const info = await getTransporter().sendMail({
+            from: `"${process.env.EMAIL_FROM_NAME || "Stratex"}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
             replyTo: process.env.EMAIL_USER,
 
             bcc: Array.isArray(emails)

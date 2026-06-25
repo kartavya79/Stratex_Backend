@@ -1,14 +1,28 @@
 const { ImageKit } = require("@imagekit/nodejs")
-require('dotenv').config()
-const imagekitClient = new ImageKit({
-    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-})
+const path = require("path");
+require('dotenv').config({ path: path.resolve(__dirname, "../../.env") })
+
+let imagekitClient;
+
+const getImageKitClient = () => {
+    if (!process.env.IMAGEKIT_PRIVATE_KEY) {
+        throw new Error("IMAGEKIT_PRIVATE_KEY is required for file uploads");
+    }
+
+    if (!imagekitClient) {
+        imagekitClient = new ImageKit({
+            privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+        });
+    }
+
+    return imagekitClient;
+};
 
 const UploadProfile = async (fileBuffer, originalName) => {
     try {
         const extension = originalName.split('.').pop();
 
-        return await imagekitClient.files.upload({
+        return await getImageKitClient().files.upload({
             file: fileBuffer.toString("base64"),
             fileName: `User-${Date.now()}.${extension}`,
             folder: "/userProfiles"
@@ -26,7 +40,7 @@ const schoolImg = async (fileBuffer, originalName, slug, typeOf) => {
     try {
         const extension = originalName.split('.').pop();
 
-        return await imagekitClient.files.upload({
+        return await getImageKitClient().files.upload({
             file: fileBuffer.toString("base64"),
             fileName: `${slug}-${Date.now()}.${extension}`,
             folder: typeOf === "logo"
@@ -34,7 +48,6 @@ const schoolImg = async (fileBuffer, originalName, slug, typeOf) => {
                 : "/acadmics/SchoolBanners",
 
         });
-        return response
     }
     catch (err) {
         console.error("Error uploading image:", err.message);
@@ -46,6 +59,6 @@ const schoolImg = async (fileBuffer, originalName, slug, typeOf) => {
 
 
 const deleteFile = async (fileId) => {
-    return imagekitClient.files.delete(fileId);
+    return getImageKitClient().files.delete(fileId);
 };
 module.exports = { UploadFiles: UploadProfile, schoolImg , deleteFile}

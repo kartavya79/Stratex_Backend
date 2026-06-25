@@ -1,39 +1,38 @@
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const express = require('express');
 const cors = require("cors")
 const cookieParser = require('cookie-parser');
+const auditRequest = require("./middlewares/audit.middleware");
 const authRoutes = require('./routes/auth.routes');
-const createRoutes = require('./routes/creation.routes')
-const assigneRoutes = require('./routes/assigne.routes')
-const removeRoutes = require("./routes/remove.routes")
-const getRoutes = require("./routes/get.routes")
+const userRoutes = require("./routes/user.routes");
+const schoolRoutes = require("./routes/school.routes");
+const programRoutes = require("./routes/program.routes");
+const specializationRoutes = require("./routes/specialization.routes");
+const subjectRoutes = require("./routes/subject.routes");
+const noticeRoutes = require("./routes/notice.routes");
+const eventRoutes = require("./routes/event.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL,
     credentials: true
 }));
+app.use("/api", auditRequest);
 
 //   #### redirect to routes
 
 // *** auth route
 app.use('/api/auth', authRoutes);
-
-
-// *** creation route
-app.use('/api/create', createRoutes)
-
-// *** assigne routes
-
-app.use('/api/assigne', assigneRoutes)
-
-
-// **** remove route
-app.use('/api/remove', removeRoutes)
-
-
-// *** get routes
-
-app.use("/api/get", getRoutes)
+app.use("/api/users", userRoutes);
+app.use("/api/schools", schoolRoutes);
+app.use("/api/programs", programRoutes);
+app.use("/api/specializations", specializationRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/notices", noticeRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 module.exports = app;

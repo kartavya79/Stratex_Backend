@@ -39,9 +39,6 @@ const createSchool = async (req, res) => {
         }
 
 
-
-
-
         const slugRegex = /^[a-z0-9-]+$/;
 
         if (!slugRegex.test(slug)) {

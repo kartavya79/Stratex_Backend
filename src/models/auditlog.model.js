@@ -14,6 +14,7 @@ const auditLogSchema = new mongoose.Schema(
       required: true,
       enum: [
         "CREATE",
+        "READ",
         "BULK_CREATE",
         "UPDATE",
         "DELETE",
@@ -32,10 +33,16 @@ const auditLogSchema = new mongoose.Schema(
         "SCHOOL_CREATION_FAILED",
         "SUBJECT_CREATION_FAILED",
         "SEMESTER_CREATION_FAILED",
+        "UNAUTHORIZED_UPDATE_ATTEMPT",
+        "UNAUTHORIZED_DELETE_ATTEMPT",
+        "USER_UPDATE_FAILED",
+        "USER_DELETE_FAILED",
+        "SUBJECT_UPDATE_FAILED",
         "FACULTY_REMOVAL_FAILED",
         "COORDINATOR_ASSIGNMENT_FAILED",
         "COORDINATOR_REMOVAL_FAILED",
         "SUBJECT_DELETE_FAILED",
+        "SETUP_PASSWORD",
         "LOGIN_FAILED"
         
       ]
@@ -55,7 +62,8 @@ const auditLogSchema = new mongoose.Schema(
         "Resource",
         "Subject",
         "Auth",
-        "Semester"
+        "Semester",
+        "Dashboard"
       ]
     },
 

@@ -1,47 +1,73 @@
 const subjectModel = require("../../../models/subject.model");
+const { sendError, sendSuccess } = require("../../../utils/apiResponse");
+const {
+    buildPagination,
+    buildPaginationMeta,
+    buildSearchFilter,
+    buildSort,
+    normalizeObjectIdFilter,
+} = require("../../../utils/queryHelper");
 
 const getSubjects = async (req, res) => {
     try {
 
         const {
             schoolId,
+            program,
             programId,
             specializationId,
+            semester,
             semesterId,
             facultyId,
             coordinatorId,
-            status
+            status,
         } = req.query;
 
         const filter = {};
 
         if (schoolId) {
-            filter.schoolId = schoolId;
+            filter.schoolId = normalizeObjectIdFilter(schoolId);
         }
 
-        if (programId) {
-            filter.programId = programId;
+        if (program || programId) {
+            filter.programId = normalizeObjectIdFilter(program || programId);
         }
 
         if (specializationId) {
-            filter.specializationId = specializationId;
+            filter.specializationId = normalizeObjectIdFilter(specializationId);
         }
 
-        if (semesterId) {
-            filter.semesterId = semesterId;
+        if (semester || semesterId) {
+            filter.semesterId = normalizeObjectIdFilter(semester || semesterId);
         }
 
         if (facultyId) {
-            filter.facultyIds = facultyId;
+            filter.facultyIds = normalizeObjectIdFilter(facultyId);
         }
 
         if (coordinatorId) {
-            filter.coordinatorId = coordinatorId;
+            filter.coordinatorId = normalizeObjectIdFilter(coordinatorId);
         }
 
         if (status) {
             filter.status = status || "active";
         }
+
+        Object.assign(filter, buildSearchFilter(req.query.search, [
+            "code",
+            "name",
+            "description",
+        ]));
+
+        const { page, limit, skip } = buildPagination(req.query);
+        const sort = buildSort(req.query, [
+            "code",
+            "name",
+            "credits",
+            "status",
+            "createdAt",
+            "updatedAt",
+        ]);
 
         const subjects = await subjectModel
             .find(filter)
@@ -65,28 +91,32 @@ const getSubjects = async (req, res) => {
                 "updatedBy",
                 "firstName lastName"
             )
-            .sort({ createdAt: -1 })
-            .skip((pageNum - 1) * limitNum)
-            .limit(limitNum);
+            .sort(sort)
+            .skip(skip)
+            .limit(limit);
 
         const total =
             await subjectModel.countDocuments(filter);
-
-        return res.status(200).json({
+        const pagination = buildPaginationMeta({
+            page,
+            limit,
             total,
-            page: Number(page),
-            limit: Number(limit),
             count: subjects.length,
-            subjects
         });
+
+        return sendSuccess(
+            res,
+            200,
+            "Subjects fetched successfully",
+            subjects,
+            pagination
+        );
 
     } catch (err) {
 
         console.error(err);
 
-        return res.status(500).json({
-            message: "Internal Server Error"
-        });
+        return sendError(res, 500, "Internal Server Error");
     }
 };
 
