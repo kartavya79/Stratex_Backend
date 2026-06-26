@@ -18,7 +18,8 @@ const moduleMap = {
   notices: "Notice",
   events: "Event",
   dashboard: "Dashboard",
-  auth: "Auth"
+  auth: "Auth",
+  notifications: "Notification"
 };
 
 const getAction = (req) => {

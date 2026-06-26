@@ -44,6 +44,14 @@ const auditLogSchema = new mongoose.Schema(
         "SUBJECT_DELETE_FAILED",
         "SETUP_PASSWORD",
         "LOGIN_FAILED"
+        ,"CREATE_NOTIFICATION",
+        "READ_NOTIFICATION",
+        "READ_ALL_NOTIFICATION",
+        "READ_MULTIPLE_NOTIFICATION",
+        "DELETE_NOTIFICATION",
+        "RESTORE_NOTIFICATION",
+        "PIN_NOTIFICATION",
+        "UNPIN_NOTIFICATION"
         
       ]
     },
@@ -63,7 +71,8 @@ const auditLogSchema = new mongoose.Schema(
         "Subject",
         "Auth",
         "Semester",
-        "Dashboard"
+        "Dashboard",
+        "Notification"
       ]
     },
 

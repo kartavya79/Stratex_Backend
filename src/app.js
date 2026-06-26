@@ -13,6 +13,7 @@ const subjectRoutes = require("./routes/subject.routes");
 const noticeRoutes = require("./routes/notice.routes");
 const eventRoutes = require("./routes/event.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const notificationRoutes = require("./routes/notification.routes");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -34,5 +35,6 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 module.exports = app;
