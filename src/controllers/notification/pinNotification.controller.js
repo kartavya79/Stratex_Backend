@@ -4,7 +4,9 @@ const auditLogModel = require("../../models/auditlog.model");
 const { sendError, sendSuccess } = require("../../utils/apiResponse");
 const notificationCache = require("../../services/notification/notificationCache.service");
 
-const writeDeleteAudit = async (req, action, targetId, oldData, newData) => {
+const PIN_LIMIT = Number(process.env.NOTIFICATION_PIN_LIMIT) || 5;
+
+const writePinAudit = async (req, action, targetId, oldData, newData) => {
   await auditLogModel.create({
     performedBy: req.user._id,
     action,
@@ -18,19 +20,34 @@ const writeDeleteAudit = async (req, action, targetId, oldData, newData) => {
   });
 };
 
-const softDeleteNotification = async (req, res) => {
+const pinNotification = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return sendError(res, 400, "id must be a valid ObjectId");
     }
 
-    const oldRecord = await userNotificationModel.findOne({
-      notificationId: req.params.id,
-      userId: req.user._id,
-    }).lean();
+    const userNotification = await userNotificationModel
+      .findOne({
+        notificationId: req.params.id,
+        userId: req.user._id,
+        isDeleted: false,
+      })
+      .lean();
 
-    if (!oldRecord) {
+    if (!userNotification) {
       return sendError(res, 404, "Notification not found");
+    }
+
+    if (!userNotification.isPinned) {
+      const pinnedCount = await userNotificationModel.countDocuments({
+        userId: req.user._id,
+        isPinned: true,
+        isDeleted: false,
+      });
+
+      if (pinnedCount >= PIN_LIMIT) {
+        return sendError(res, 400, `You can pin maximum ${PIN_LIMIT} notifications`);
+      }
     }
 
     const now = new Date();
@@ -38,41 +55,45 @@ const softDeleteNotification = async (req, res) => {
       {
         notificationId: req.params.id,
         userId: req.user._id,
+        isDeleted: false,
       },
       {
         $set: {
-          isDeleted: true,
-          deletedAt: now,
+          isPinned: true,
+          pinnedAt: now,
         },
       },
       { new: true }
     );
 
-    await writeDeleteAudit(req, "DELETE_NOTIFICATION", req.params.id, oldRecord, {
-      isDeleted: updated.isDeleted,
-      deletedAt: updated.deletedAt,
+    await writePinAudit(req, "NOTIFICATION_PINNED", req.params.id, userNotification, {
+      isPinned: true,
+      pinnedAt: now,
     });
 
     notificationCache.invalidate();
 
-    return sendSuccess(res, 200, "Notification deleted successfully", updated);
+    return sendSuccess(res, 200, "Notification pinned successfully", updated);
   } catch (err) {
-    console.error("Soft delete notification failed:", err);
+    console.error("Pin notification failed:", err);
 
     return sendError(res, 500, "Internal Server Error");
   }
 };
 
-const restoreNotification = async (req, res) => {
+const unpinNotification = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return sendError(res, 400, "id must be a valid ObjectId");
     }
 
-    const oldRecord = await userNotificationModel.findOne({
-      notificationId: req.params.id,
-      userId: req.user._id,
-    }).lean();
+    const oldRecord = await userNotificationModel
+      .findOne({
+        notificationId: req.params.id,
+        userId: req.user._id,
+        isDeleted: false,
+      })
+      .lean();
 
     if (!oldRecord) {
       return sendError(res, 404, "Notification not found");
@@ -82,32 +103,33 @@ const restoreNotification = async (req, res) => {
       {
         notificationId: req.params.id,
         userId: req.user._id,
+        isDeleted: false,
       },
       {
         $set: {
-          isDeleted: false,
-          deletedAt: null,
+          isPinned: false,
+          pinnedAt: null,
         },
       },
       { new: true }
     );
 
-    await writeDeleteAudit(req, "RESTORE_NOTIFICATION", req.params.id, oldRecord, {
-      isDeleted: updated.isDeleted,
-      deletedAt: updated.deletedAt,
+    await writePinAudit(req, "NOTIFICATION_UNPINNED", req.params.id, oldRecord, {
+      isPinned: false,
+      pinnedAt: null,
     });
 
     notificationCache.invalidate();
 
-    return sendSuccess(res, 200, "Notification restored successfully", updated);
+    return sendSuccess(res, 200, "Notification unpinned successfully", updated);
   } catch (err) {
-    console.error("Restore notification failed:", err);
+    console.error("Unpin notification failed:", err);
 
     return sendError(res, 500, "Internal Server Error");
   }
 };
 
 module.exports = {
-  restoreNotification,
-  softDeleteNotification,
+  pinNotification,
+  unpinNotification,
 };

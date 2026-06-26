@@ -17,6 +17,10 @@ const {
 const {
   getNotificationAnalytics,
 } = require("../controllers/notification/notificationAnalytics.controller");
+const {
+  pinNotification,
+  unpinNotification,
+} = require("../controllers/notification/pinNotification.controller");
 
 const router = express.Router();
 
@@ -28,6 +32,8 @@ router.get("/analytics", getNotificationAnalytics);
 router.post("/", createNotification);
 router.patch("/read-many", markManyNotificationsRead);
 router.patch("/read-all", markAllNotificationsRead);
+router.patch("/:id/pin", pinNotification);
+router.patch("/:id/unpin", unpinNotification);
 router.patch("/:id/read", markNotificationRead);
 router.delete("/:id", softDeleteNotification);
 router.patch("/:id/restore", restoreNotification);

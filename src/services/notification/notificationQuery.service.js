@@ -86,6 +86,7 @@ const getNotificationFeed = async (userId, query = {}) => {
       {
         $match: {
           ...notificationMatch,
+          "notification.isExpired": { $ne: true },
           $or: [
             { "notification.expiresAt": null },
             { "notification.expiresAt": { $gt: new Date() } },

@@ -60,6 +60,28 @@ const UserNotificationSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+
+    status: {
+      type: String,
+      enum: ["pending", "delivered", "failed"],
+      default: "delivered",
+    },
+
+    failureReason: {
+      type: String,
+      default: null,
+    },
+
+    retryCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    lastRetryAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -94,6 +116,17 @@ UserNotificationSchema.index({
 UserNotificationSchema.index({
   userId: 1,
   isPinned: 1,
+});
+
+UserNotificationSchema.index({
+  userId: 1,
+  isPinned: 1,
+  isDeleted: 1,
+});
+
+UserNotificationSchema.index({
+  userId: 1,
+  status: 1,
 });
 
 // Notification lookup

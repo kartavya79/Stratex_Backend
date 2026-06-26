@@ -5,6 +5,7 @@ const { sendError, sendSuccess } = require("../../utils/apiResponse");
 const {
   validateNotificationIds,
 } = require("../../services/notification/notificationValidation.service");
+const notificationCache = require("../../services/notification/notificationCache.service");
 
 const writeReadAudit = async (req, action, targetId, newData = {}) => {
   await auditLogModel.create({
@@ -49,6 +50,8 @@ const markNotificationRead = async (req, res) => {
       readAt: now,
     });
 
+    notificationCache.invalidate();
+
     return sendSuccess(res, 200, "Notification marked as read", {
       modifiedCount: result.modifiedCount,
     });
@@ -88,6 +91,8 @@ const markManyNotificationsRead = async (req, res) => {
       readAt: now,
     });
 
+    notificationCache.invalidate();
+
     return sendSuccess(res, 200, "Notifications marked as read", {
       matchedCount: result.matchedCount,
       modifiedCount: result.modifiedCount,
@@ -120,6 +125,8 @@ const markAllNotificationsRead = async (req, res) => {
       modifiedCount: result.modifiedCount,
       readAt: now,
     });
+
+    notificationCache.invalidate();
 
     return sendSuccess(res, 200, "All notifications marked as read", {
       matchedCount: result.matchedCount,

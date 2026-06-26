@@ -7,6 +7,10 @@ const { resolveAudience } = require("../../services/notification/audience.servic
 const {
   validateCreateNotification,
 } = require("../../services/notification/notificationValidation.service");
+const {
+  findRecentDuplicate,
+} = require("../../services/notification/notificationDuplicate.service");
+const notificationCache = require("../../services/notification/notificationCache.service");
 
 const creatorRoles = ["superAdmin", "schoolAdmin", "faculty", "coordinator", "examCell"];
 
@@ -37,6 +41,42 @@ const createNotification = async (req, res) => {
       return sendError(res, 400, "Validation failed", errors);
     }
 
+    const duplicateResult = await findRecentDuplicate(
+      {
+        title: req.body.title,
+        message: req.body.message,
+        type: req.body.type,
+        reference: req.body.reference,
+        audience,
+      },
+      {
+        allowDuplicate: req.body.allowDuplicate === true,
+      }
+    );
+
+    if (duplicateResult?.notification) {
+      await auditLogModel.create({
+        performedBy: req.user._id,
+        action: "DUPLICATE_NOTIFICATION_PREVENTED",
+        module: "Notification",
+        targetId: duplicateResult.notification._id,
+        targetName: duplicateResult.notification.title,
+        newData: {
+          notificationId: duplicateResult.notification._id,
+          duplicateKey: duplicateResult.duplicateKey,
+          audience,
+        },
+        remarks: "Duplicate notification prevented",
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      return sendSuccess(res, 200, "Duplicate notification prevented", {
+        notification: duplicateResult.notification,
+        duplicate: true,
+      });
+    }
+
     session.startTransaction();
 
     const [notification] = await notificationModel.create(
@@ -53,6 +93,7 @@ const createNotification = async (req, res) => {
           action: req.body.action || undefined,
           metadata: req.body.metadata || {},
           expiresAt: req.body.expiresAt || null,
+          duplicateKey: duplicateResult.duplicateKey,
         },
       ],
       { session }
@@ -69,6 +110,7 @@ const createNotification = async (req, res) => {
       notificationId: notification._id,
       userId: user._id,
       deliveredAt: now,
+      status: "delivered",
     }));
 
     for (const docs of chunk(userNotificationDocs, 5000)) {
@@ -100,6 +142,7 @@ const createNotification = async (req, res) => {
     );
 
     await session.commitTransaction();
+    notificationCache.invalidate();
 
     return sendSuccess(res, 201, "Notification created successfully", {
       notification,

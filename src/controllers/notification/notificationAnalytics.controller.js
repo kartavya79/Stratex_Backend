@@ -1,6 +1,8 @@
 const notificationModel = require("../../models/notificaton.Model");
 const userNotificationModel = require("../../models/userNotificaton.model");
+const auditLogModel = require("../../models/auditlog.model");
 const { sendError, sendSuccess } = require("../../utils/apiResponse");
+const notificationCache = require("../../services/notification/notificationCache.service");
 
 const analyticsRoles = ["superAdmin", "schoolAdmin"];
 
@@ -33,6 +35,12 @@ const getNotificationAnalytics = async (req, res) => {
       return sendError(res, 403, "You are not allowed to view notification analytics");
     }
 
+    const cached = notificationCache.get("analytics");
+
+    if (cached) {
+      return sendSuccess(res, 200, "Notification analytics fetched successfully", cached);
+    }
+
     const today = startOfDay(new Date());
     const weekStart = daysAgo(7);
     const monthStart = daysAgo(30);
@@ -51,7 +59,7 @@ const getNotificationAnalytics = async (req, res) => {
       byPriority,
     ] = await Promise.all([
       notificationModel.countDocuments({}),
-      userNotificationModel.countDocuments({}),
+      userNotificationModel.countDocuments({ status: "delivered" }),
       userNotificationModel.countDocuments({ isRead: true, isDeleted: false }),
       userNotificationModel.countDocuments({ isRead: false, isDeleted: false }),
       userNotificationModel.countDocuments({ isDeleted: true }),
@@ -81,7 +89,7 @@ const getNotificationAnalytics = async (req, res) => {
       ? Number(((unread / activeDelivered) * 100).toFixed(2))
       : 0;
 
-    return sendSuccess(res, 200, "Notification analytics fetched successfully", {
+    const analytics = {
       totalNotifications,
       delivered,
       read,
@@ -95,7 +103,23 @@ const getNotificationAnalytics = async (req, res) => {
       thisMonth,
       notificationsByType: toKeyedCounts(byType),
       notificationsByPriority: toKeyedCounts(byPriority),
+    };
+
+    notificationCache.set("analytics", analytics);
+
+    await auditLogModel.create({
+      performedBy: req.user._id,
+      action: "ANALYTICS_CACHE_REFRESH",
+      module: "Notification",
+      newData: {
+        cacheKey: "analytics",
+      },
+      remarks: "Notification analytics cache refreshed",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
     });
+
+    return sendSuccess(res, 200, "Notification analytics fetched successfully", analytics);
   } catch (err) {
     console.error("Notification analytics failed:", err);
 

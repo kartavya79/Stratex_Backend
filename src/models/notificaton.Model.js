@@ -186,6 +186,22 @@ const NotificationSchema = new mongoose.Schema(
       default: null,
     },
 
+    isExpired: {
+      type: Boolean,
+      default: false,
+    },
+
+    expiredAt: {
+      type: Date,
+      default: null,
+    },
+
+    duplicateKey: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -259,6 +275,16 @@ NotificationSchema.index({
 // Expiry
 NotificationSchema.index({
   expiresAt: 1,
+});
+
+NotificationSchema.index({
+  isExpired: 1,
+  expiresAt: 1,
+});
+
+NotificationSchema.index({
+  duplicateKey: 1,
+  createdAt: -1,
 });
 
 module.exports = mongoose.model("Notification", NotificationSchema);
