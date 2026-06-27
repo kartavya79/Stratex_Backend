@@ -144,9 +144,14 @@ const createSubject = async (req, res) => {
             ) {
                 return res.status(400).json({
                     message:
-                        "Semester does not belong to selected specialization"
+                    "Semester does not belong to selected specialization"
                 });
             }
+        } else if (semester.specializationId) {
+            return res.status(400).json({
+                message:
+                    "Selected semester belongs to a specialization"
+            });
         }
 
         const existingSubject =

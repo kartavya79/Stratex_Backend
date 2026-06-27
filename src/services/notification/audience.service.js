@@ -6,6 +6,7 @@ const buildAudienceQuery = (audience) => {
   const query = {
     status: "active",
   };
+  const assignmentMatch = {};
 
   if (!audience.allUsers && hasValues(audience.userIds)) {
     query._id = { $in: audience.userIds };
@@ -20,31 +21,43 @@ const buildAudienceQuery = (audience) => {
   }
 
   if (hasValues(audience.programIds)) {
-    query["academicAssignments.programId"] = { $in: audience.programIds };
+    assignmentMatch.programId = { $in: audience.programIds };
   }
 
   if (hasValues(audience.specializationIds)) {
-    const specializationFilter = {
-      "academicAssignments.specializationId": { $in: audience.specializationIds },
-    };
+    assignmentMatch.specializationId = { $in: audience.specializationIds };
 
     if (audience.includeUsersWithoutSpecialization) {
-      query.$or = [
-        specializationFilter,
-        { "academicAssignments.specializationId": null },
-        { "academicAssignments.specializationId": { $exists: false } },
+      assignmentMatch.$or = [
+        { specializationId: { $in: audience.specializationIds } },
+        { specializationId: null },
+        { specializationId: { $exists: false } },
       ];
-    } else {
-      Object.assign(query, specializationFilter);
+      delete assignmentMatch.specializationId;
     }
   }
 
   if (hasValues(audience.semesterIds)) {
+    assignmentMatch.semesterId = { $in: audience.semesterIds };
+  }
+
+  if (Object.keys(assignmentMatch).length) {
+    query.academicAssignments = {
+      $elemMatch: assignmentMatch,
+    };
+  }
+
+  if (
+    hasValues(audience.semesterIds) &&
+    !hasValues(audience.programIds) &&
+    !hasValues(audience.specializationIds)
+  ) {
+    delete query.academicAssignments;
     query.$and = query.$and || [];
     query.$and.push({
       $or: [
         { currentSemester: { $in: audience.semesterIds } },
-        { "academicAssignments.semesterId": { $in: audience.semesterIds } },
+        { academicAssignments: { $elemMatch: { semesterId: { $in: audience.semesterIds } } } },
       ],
     });
   }

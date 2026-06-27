@@ -1,0 +1,202 @@
+const mongoose = require("mongoose");
+const userModel = require("../../models/user.model");
+const schoolModel = require("../../models/school.model");
+const auditLogModel = require("../../models/auditlog.model");
+const sendSetupEmail = require("../email.service");
+const {
+  assertCanCreateRoleSet,
+  assertCanCreateUsers,
+  hasRole,
+} = require("../user/permission.service");
+const {
+  assertNoExistingUsers,
+  assertNoPayloadDuplicates,
+  normalizeEmail,
+} = require("../user/duplicateUser.service");
+const { createSetupToken } = require("../user/setupToken.service");
+const { validateRoles } = require("../user/validateRole.service");
+const {
+  validateAcademicAssignments,
+} = require("../user/validateAcademicAssignment.service");
+
+const allowedStatus = ["active", "inactive", "suspended"];
+
+const createHttpError = (message, statusCode) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const validateBasicUserFields = async (userData, roles) => {
+  const { firstName, lastName, universityAccount, schoolId, status } = userData;
+
+  if (!firstName || !lastName) {
+    throw createHttpError(`Missing required fields for ${firstName || "user"}`, 400);
+  }
+
+  if (status && !allowedStatus.includes(status)) {
+    throw createHttpError("Invalid status", 400);
+  }
+
+  if (!roles.includes("superAdmin")) {
+    if (!universityAccount || !schoolId) {
+      throw createHttpError(`Missing required fields for ${firstName || "user"}`, 400);
+    }
+
+    if (!universityAccount.universityEmail || !universityAccount.institutionId) {
+      throw createHttpError("University email and institution ID are required", 400);
+    }
+
+    const school = await schoolModel.findById(schoolId).lean();
+    if (!school) {
+      throw createHttpError("School not found", 404);
+    }
+  }
+};
+
+const prepareUsersForCreation = async (req, usersData) => {
+  await assertCanCreateUsers(req);
+  assertNoPayloadDuplicates(usersData);
+  await assertNoExistingUsers(usersData);
+
+  const usersToCreate = [];
+
+  for (const userData of usersData) {
+    const roles = userData.roles || [];
+    validateRoles(roles);
+    await validateBasicUserFields(userData, roles);
+    assertCanCreateRoleSet(req.user, roles, userData.schoolId);
+
+    const normalizedUniversityAccount = userData.universityAccount
+      ? {
+          universityEmail: normalizeEmail(userData.universityAccount.universityEmail),
+          institutionId: userData.universityAccount.institutionId?.trim(),
+        }
+      : undefined;
+
+    const academic = await validateAcademicAssignments({
+      userData,
+      roles,
+    });
+
+    const setupToken = createSetupToken();
+
+    usersToCreate.push({
+      firstName: userData.firstName,
+      middleName: userData.middleName,
+      lastName: userData.lastName,
+      personalEmail: normalizeEmail(userData.personalEmail),
+      universityAccount: normalizedUniversityAccount,
+      roles,
+      status: userData.status || "inactive",
+      schoolId: userData.schoolId || undefined,
+      academicAssignments: academic.academicAssignments,
+      currentSemester: academic.currentSemester,
+      setupToken: setupToken.hashedToken,
+      setupTokenExpiry: setupToken.expiresAt,
+      createdBy: req.user._id,
+      __rawToken: setupToken.rawToken,
+    });
+  }
+
+  return usersToCreate;
+};
+
+const sendSetupEmails = async (users, usersToCreate) => {
+  for (let index = 0; index < users.length; index += 1) {
+    const user = users[index];
+    const sourceUser = usersToCreate[index];
+
+    const emails = [user.universityAccount?.universityEmail, user.personalEmail].filter(Boolean);
+    if (!emails.length || hasRole(user, "superAdmin")) {
+      continue;
+    }
+
+    const setupLink = `${process.env.CLIENT_URL}/setup-password/${sourceUser.__rawToken}`;
+    await sendSetupEmail(emails, user.fullName, setupLink);
+  }
+};
+
+const registerUsers = async (req) => {
+  const usersData = Array.isArray(req.body) ? req.body : [req.body];
+  let usersToCreate = [];
+
+  try {
+    usersToCreate = await prepareUsersForCreation(req, usersData);
+    const session = await mongoose.startSession();
+
+    try {
+      session.startTransaction();
+
+      const users = await userModel.create(
+        usersToCreate.map(({ __rawToken, ...dbUser }) => ({
+          ...dbUser,
+          profileImage: null,
+        })),
+        { session, ordered: true }
+      );
+
+      await sendSetupEmails(users, usersToCreate);
+
+      await auditLogModel.create(
+        [
+          {
+            performedBy: req.user._id,
+            action: users.length > 1 ? "BULK_CREATE" : "CREATE",
+            module: "User",
+            targetIds: users.map((user) => user._id),
+            targetNames: usersData.map((user) => `${user.firstName} ${user.lastName}`),
+            remarks:
+              users.length > 1
+                ? `${users.length} user accounts created and setup emails sent`
+                : "User account created and setup email sent",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"],
+          },
+        ],
+        { session }
+      );
+
+      await session.commitTransaction();
+
+      const createdUsers = await userModel
+        .find({ _id: { $in: users.map((user) => user._id) } })
+        .select("-setupToken -setupTokenExpiry")
+        .lean();
+
+      return {
+        statusCode: 201,
+        body: {
+          message: `${createdUsers.length} user(s) created successfully`,
+          users: createdUsers,
+        },
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      console.error("User creation/setup email error:", error);
+      throw createHttpError("User creation failed because setup email could not be sent", 500);
+    } finally {
+      await session.endSession();
+    }
+  } catch (err) {
+    try {
+      await auditLogModel.create({
+        performedBy: req.user?._id,
+        action: "ACCOUNT_CREATION_FAILED",
+        module: "User",
+        targetNames: usersData.map((user) => `${user.firstName} ${user.lastName}`),
+        remarks: err.message,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+    } catch (auditErr) {
+      console.error("Failed to create audit log:", auditErr);
+    }
+
+    throw err;
+  }
+};
+
+module.exports = {
+  registerUsers,
+};
