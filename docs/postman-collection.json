@@ -1,0 +1,371 @@
+{
+  "info": {
+    "name": "SOET ERP Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "schoolId",
+      "value": ""
+    },
+    {
+      "key": "programId",
+      "value": ""
+    },
+    {
+      "key": "specializationId",
+      "value": ""
+    },
+    {
+      "key": "semesterId",
+      "value": ""
+    },
+    {
+      "key": "subjectId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        },
+        {
+          "name": "Setup Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/setup-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"setup-token\",\n  \"password\": \"Password123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schools",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/schools?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/schools",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"School of Engineering\",\n  \"slug\": \"engineering\",\n  \"description\": \"Engineering school\",\n  \"status\": \"active\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Programs",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/programs?schoolId={{schoolId}}"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/programs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"B.Tech CSE\",\n  \"schoolId\": \"{{schoolId}}\",\n  \"description\": \"Computer Science Engineering\",\n  \"duration\": 4,\n  \"degreeType\": \"UG\",\n  \"status\": \"active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/programs/{{programId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/programs/{{programId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Specializations",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/specializations?programId={{programId}}"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/specializations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"programId\": \"{{programId}}\",\n  \"name\": \"Artificial Intelligence\",\n  \"description\": \"AI specialization\",\n  \"status\": \"active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/specializations/{{specializationId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subjects",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/subjects?programId={{programId}}&semesterId={{semesterId}}&specializationId={{specializationId}}"
+          }
+        },
+        {
+          "name": "Create Common Subject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/subjects",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"MATH101\",\n  \"name\": \"Mathematics I\",\n  \"schoolId\": \"{{schoolId}}\",\n  \"programId\": \"{{programId}}\",\n  \"semesterId\": \"{{semesterId}}\",\n  \"credits\": 4\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Specialization Subject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/subjects",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"AI501\",\n  \"name\": \"Artificial Intelligence\",\n  \"schoolId\": \"{{schoolId}}\",\n  \"programId\": \"{{programId}}\",\n  \"specializationId\": \"{{specializationId}}\",\n  \"semesterId\": \"{{semesterId}}\",\n  \"credits\": 4\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Aarav\",\n  \"lastName\": \"Sharma\",\n  \"personalEmail\": \"aarav@example.com\",\n  \"universityAccount\": {\n    \"universityEmail\": \"aarav@university.edu\",\n    \"institutionId\": \"STU001\"\n  },\n  \"schoolId\": \"{{schoolId}}\",\n  \"roles\": [\"student\"],\n  \"academicAssignments\": [{\n    \"programId\": \"{{programId}}\",\n    \"semesterId\": \"{{semesterId}}\",\n    \"specializationId\": \"{{specializationId}}\"\n  }]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Feed",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/notifications?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Unread Count",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/notifications/unread-count"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notifications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Exam Notice\",\n  \"message\": \"Exam schedule published.\",\n  \"type\": \"exam\",\n  \"priority\": \"high\",\n  \"audience\": {\n    \"roles\": [\"student\"],\n    \"programIds\": [\"{{programId}}\"],\n    \"semesterIds\": [\"{{semesterId}}\"]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Mark Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "Read All",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/notifications/read-all"
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/notifications/{{notificationId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/stats"
+          }
+        },
+        {
+          "name": "Recent Users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/recent-users"
+          }
+        },
+        {
+          "name": "Recent Activities",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/recent-activities"
+          }
+        }
+      ]
+    }
+  ]
+}

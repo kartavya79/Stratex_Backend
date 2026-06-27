@@ -1,0 +1,35 @@
+# Schools
+
+Schools are the top-level academic unit.
+
+## Implementation
+
+| Type | File |
+|---|---|
+| Route | `backend/src/routes/school.routes.js` |
+| Controller | `backend/src/controllers/acadmicgroups/school.controller.js` |
+| Model | `backend/src/models/school.model.js` |
+
+## Model
+
+Fields: `name`, `slug`, `description`, `logo`, `banner`, `status`, `createdBy`, `updatedBy`.
+
+Indexes:
+
+- Unique `name`
+- Unique `slug`
+
+## Endpoints
+
+- `GET /api/schools`
+- `GET /api/schools/:id`
+- `POST /api/schools`
+- `PUT /api/schools/:id`
+- `DELETE /api/schools/:id`
+
+## Frontend Usage
+
+Create schools before programs. Program creation requires `schoolId`.
+
+See also: [Academic Modules](./academic.md), [API Reference](./api-reference.md).
+
