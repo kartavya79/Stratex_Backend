@@ -1,4 +1,4 @@
-# SOET ERP Backend Documentation
+# Stratex ERP Backend Documentation
 
 This documentation is for developers joining the SOET University ERP backend. It describes the backend that exists in this repository today, including routes, models, services, middleware, business rules, frontend integration order, and operational notes.
 
