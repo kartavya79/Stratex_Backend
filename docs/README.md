@@ -51,7 +51,7 @@ npm install
 npm run dev
 ```
 
-Required backend environment variables are documented in [Deployment](./deployment.md).
+Required backend environment variables are documented in  [Deployment](./deployment.md).
 
 ## Request Lifecycle
 
