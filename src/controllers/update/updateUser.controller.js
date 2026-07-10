@@ -1,5 +1,6 @@
 const userModel = require("../../models/user.model");
 const auditLogModel = require("../../models/auditlog.model");
+const { UploadFiles } = require("../../services/storage.service");
 
 const updateUser = async (req, res) => {
     try {
@@ -19,12 +20,13 @@ const updateUser = async (req, res) => {
             "schoolAdmin"
         ];
 
+        const isSelfUpdate = req.user._id?.toString() === userId?.toString();
+        const canManageUsers = req.user.roles.some(role =>
+            allowedRoles.includes(role)
+        );
+
         // Authorization
-        if (
-            !req.user.roles.some(role =>
-                allowedRoles.includes(role)
-            )
-        ) {
+        if (!isSelfUpdate && !canManageUsers) {
 
             await auditLogModel.create({
                 performedBy: req.user?._id,
@@ -104,8 +106,16 @@ const updateUser = async (req, res) => {
             user.phoneNumber = phoneNumber.trim();
         }
 
-        if (status) {
+        if (status && canManageUsers) {
             user.status = status;
+        }
+
+        if (req.file) {
+            const profileImage = await UploadFiles(
+                req.file.buffer,
+                req.file.originalname
+            );
+            user.profileImage = profileImage.url;
         }
 
         user.updatedBy = req.user._id;
