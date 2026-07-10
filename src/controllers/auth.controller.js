@@ -152,8 +152,8 @@ const loginUser = async (req, res) => {
 
                 schoolId: user.schoolId,
 
-                profilePicture:
-                    user.profilePicture,
+                profileImage:
+                    user.profileImage,
 
                 status: user.status
             }

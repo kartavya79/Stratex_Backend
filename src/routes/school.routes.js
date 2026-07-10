@@ -3,11 +3,13 @@ const multer = require("multer");
 const authMiddleware = require("../middlewares/auth.middleware");
 const validate = require("../middlewares/validate.middleware");
 const schoolModel = require("../models/school.model");
-const { schools: createSchool } = require("../controllers/acadmicgroups/school.controller");
+const {
+  schools: createSchool,
+  updateSchool
+} = require("../controllers/acadmicgroups/school.controller");
 const {
   createListController,
   createGetByIdController,
-  createUpdateController,
   createDeleteController
 } = require("../controllers/rest.controller");
 
@@ -23,7 +25,7 @@ const options = {
   resourceName: "School",
   resourceKey: "school",
   collectionName: "schools",
-  searchFields: ["name", "slug", "description", "email", "phone", "code"],
+  searchFields: ["name", "slug", "description", "email", "website", "code"],
   filterMap: {
     status: "status",
   },
@@ -48,7 +50,6 @@ router.post(
     slug: { required: true, minLength: 2 },
     status: { enum: ["active", "inactive"] },
     email: { type: "email" },
-    departmentCount: { type: "number", min: 0 },
   }),
   createSchool
 );
@@ -56,14 +57,17 @@ router.put(
   "/:id",
   authMiddleware.chkUser,
   validate.objectIdParam("id"),
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "banner", maxCount: 1 }
+  ]),
   validate({
     name: { minLength: 3 },
     slug: { minLength: 2 },
     status: { enum: ["active", "inactive"] },
     email: { type: "email" },
-    departmentCount: { type: "number", min: 0 },
   }),
-  createUpdateController(schoolModel, options)
+  updateSchool
 );
 router.delete("/:id", authMiddleware.chkUser, validate.objectIdParam("id"), createDeleteController(schoolModel, options));
 

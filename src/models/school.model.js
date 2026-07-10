@@ -25,11 +25,6 @@ const schoolSchema = new mongoose.Schema({
         lowercase: true
     },
 
-    phone: {
-        type: String,
-        trim: true
-    },
-
     website: {
         type: String,
         trim: true
@@ -49,12 +44,6 @@ const schoolSchema = new mongoose.Schema({
     mission: {
         type: String,
         trim: true
-    },
-
-    departmentCount: {
-        type: Number,
-        min: 0,
-        default: 0
     },
 
     logo: {

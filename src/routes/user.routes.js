@@ -28,6 +28,7 @@ router.put(
   "/:id",
   authMiddleware.chkUser,
   validate.objectIdParam("id"),
+  upload.single("profile"),
   validate({
     firstName: { minLength: 2 },
     lastName: { minLength: 2 },

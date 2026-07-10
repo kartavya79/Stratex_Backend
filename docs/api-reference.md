@@ -47,9 +47,16 @@ Create body:
   "name": "School of Engineering",
   "slug": "engineering",
   "description": "Engineering school",
+  "email": "engineering@krmu.edu.in",
+  "website": "https://www.example.edu/engineering/",
+  "code": "SOET",
+  "vision": "Optional vision statement",
+  "mission": "Optional mission statement",
   "status": "active"
 }
 ```
+
+The frontend generates `website` from `VITE_UNIVERSITY_BASE_URL` and `slug`.
 
 ## Programs
 
