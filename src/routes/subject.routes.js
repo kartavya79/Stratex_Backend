@@ -1,13 +1,15 @@
 const express = require("express");
+const multer = require("multer");
 const authMiddleware = require("../middlewares/auth.middleware");
 const validate = require("../middlewares/validate.middleware");
-const { subjects: createSubject } = require("../controllers/acadmicgroups/subject.controller");
+const { subjects: createSubject, bulkSubjects } = require("../controllers/acadmicgroups/subject.controller");
 const { getSubjects } = require("../controllers/get/getSubject/getSubject.controller");
 const { getSubjectById } = require("../controllers/get/getSubject/getSubjectById.controller");
 const { updateSubject } = require("../controllers/update/updateSubject.controller");
 const { deleteSubject } = require("../controllers/remove/softRemoveSubject.controller");
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const mapIdToSubjectId = (req, _res, next) => {
   req.params.subjectId = req.params.id;
@@ -48,6 +50,7 @@ router.put(
   mapIdToSubjectId,
   updateSubject
 );
+router.post("/bulk", authMiddleware.chkUser, upload.single("file"), bulkSubjects);
 router.delete("/:id", authMiddleware.chkUser, validate.objectIdParam("id"), mapIdToSubjectId, deleteSubject);
 
 module.exports = router;

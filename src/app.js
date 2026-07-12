@@ -15,6 +15,7 @@ const noticeRoutes = require("./routes/notice.routes");
 const eventRoutes = require("./routes/event.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const importRoutes = require("./routes/import.routes");
 const {
     scheduleNotificationCleanup
 } = require("./services/notification/notificationCleanup.service");
@@ -41,6 +42,7 @@ app.use("/api/notices", noticeRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/import", importRoutes);
 
 scheduleNotificationCleanup();
 

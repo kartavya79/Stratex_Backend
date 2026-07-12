@@ -1,12 +1,25 @@
+const mongoose = require("mongoose");
 const schoolModel = require("../../models/school.model")
 const { schoolImg } = require("../../services/storage.service")
 const auditLogModel = require("../../models/auditlog.model")
+const { parseCsvBuffer } = require("../../utils/csvParser");
 
 const getTrimmedValue = (value) => {
     if (value === undefined || value === null) return undefined;
     const trimmed = String(value).trim();
     return trimmed || null;
 };
+
+const normalizeSlug = (value) =>
+    String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+const isValidEmail = (value) =>
+    !!String(value || "").trim().match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
 
 const createSchool = async (req, res) => {
     try {
@@ -139,11 +152,19 @@ const createSchool = async (req, res) => {
             });
         }
 
+        // Auto-generate website from base URL and slug when not provided
+        const baseUrl = process.env.SCHOOL_BASE_URL ? String(process.env.SCHOOL_BASE_URL).trim() : null;
+        const websiteValue = website && String(website).trim()
+            ? String(website).trim()
+            : baseUrl
+                ? `${baseUrl.replace(/\/$/, "")}/${normalizedSlug}`
+                : null;
+
         const school = await schoolModel.create({
             name: normalizedName,
             description: description ? description : null,
             email: email ? email.trim() : null,
-            website: website ? website.trim() : null,
+            website: websiteValue,
             code: code ? code.trim() : null,
             vision: vision ? vision.trim() : null,
             mission: mission ? mission.trim() : null,
@@ -190,6 +211,158 @@ const createSchool = async (req, res) => {
         return res.status(500).json({
             message: "Internal server error"
         });
+    }
+}
+
+const createBulkSchools = async (req, res) => {
+    try {
+        const allowedRoles = ["superAdmin"];
+
+        if (!req.user.roles.some((role) => allowedRoles.includes(role))) {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ message: "CSV file is required" });
+        }
+
+        const { rows, errors: parseErrors } = parseCsvBuffer(req.file.buffer);
+
+        if (parseErrors.length) {
+            return res.status(400).json({ message: "Invalid CSV data", errors: parseErrors });
+        }
+
+        const FAILURE_THRESHOLD_PERCENT = Number(process.env.BULK_FAILURE_THRESHOLD_PERCENT || 10);
+
+        const totalRows = rows.length;
+        const validationErrors = [];
+        const toCreate = [];
+
+        // First pass: validate all rows without creating anything
+        for (let index = 0; index < rows.length; index += 1) {
+            const rowNumber = index + 2;
+            const row = rows[index];
+            const name = String(row.name || "").trim();
+            const slugValue = String(row.slug || "").trim();
+            const slug = normalizeSlug(slugValue || name);
+            const description = row.description ? String(row.description).trim() : null;
+            const email = row.email ? String(row.email).trim() : null;
+            const website = row.website ? String(row.website).trim() : null;
+            const code = row.code ? String(row.code).trim() : null;
+            const vision = row.vision ? String(row.vision).trim() : null;
+            const mission = row.mission ? String(row.mission).trim() : null;
+            const status = String(row.status || "active").trim().toLowerCase();
+
+            if (!name) {
+                validationErrors.push(`Row ${rowNumber}: School name is required`);
+                continue;
+            }
+
+            if (!slug) {
+                validationErrors.push(`Row ${rowNumber}: Valid slug is required`);
+                continue;
+            }
+
+            if (!/^[a-z0-9-]+$/.test(slug)) {
+                validationErrors.push(`Row ${rowNumber}: School slug must contain only lowercase letters, numbers and hyphens`);
+                continue;
+            }
+
+            if (email && !isValidEmail(email)) {
+                validationErrors.push(`Row ${rowNumber}: Invalid email address`);
+                continue;
+            }
+
+            if (!["active", "inactive"].includes(status)) {
+                validationErrors.push(`Row ${rowNumber}: Status must be either active or inactive`);
+                continue;
+            }
+
+            const existingSchool = await schoolModel.findOne({
+                $or: [
+                    { name },
+                    { slug }
+                ]
+            });
+
+            if (existingSchool) {
+                validationErrors.push(`Row ${rowNumber}: School with same name or slug already exists`);
+                continue;
+            }
+
+            toCreate.push({ name, slug, description, email, website, code, vision, mission, status });
+        }
+
+        const failingCount = validationErrors.length;
+        const failingPercent = totalRows === 0 ? 0 : (failingCount / totalRows) * 100;
+
+        if (failingPercent > FAILURE_THRESHOLD_PERCENT) {
+            return res.status(400).json({ message: `Bulk import rejected: ${failingPercent.toFixed(2)}% rows failed validation which exceeds threshold of ${FAILURE_THRESHOLD_PERCENT}%`, errors: validationErrors });
+        }
+
+        // Second pass: create records for validated rows
+        const createdSchools = [];
+        const errors = [];
+
+        for (let i = 0; i < toCreate.length; i += 1) {
+            const rowNum = i + 2; // approximate row number (not exact if some rows were invalid)
+            const item = toCreate[i];
+
+            try {
+                // Auto-generate website from base URL and slug when not provided
+                const baseUrl = process.env.SCHOOL_BASE_URL ? String(process.env.SCHOOL_BASE_URL).trim() : null;
+                const websiteValue = item.website && String(item.website).trim()
+                    ? String(item.website).trim()
+                    : baseUrl
+                        ? `${baseUrl.replace(/\/$/, "")}/${item.slug}`
+                        : null;
+
+                const school = await schoolModel.create({
+                    name: item.name,
+                    slug: item.slug,
+                    description: item.description,
+                    email: item.email,
+                    website: websiteValue,
+                    code: item.code,
+                    vision: item.vision,
+                    mission: item.mission,
+                    status: item.status,
+                    createdBy: req.user._id
+                });
+
+                createdSchools.push(school);
+
+                await auditLogModel.create({
+                    performedBy: req.user._id,
+                    action: "BULK_CREATE",
+                    module: "School",
+                    targetId: school._id,
+                    targetName: school.name,
+                    remarks: "School created through bulk import",
+                    ipAddress: req.ip,
+                    userAgent: req.headers["user-agent"]
+                });
+            } catch (rowError) {
+                console.error(rowError);
+                if (rowError.code === 11000) {
+                    errors.push(`Row ${rowNum}: Duplicate school detected`);
+                } else {
+                    errors.push(`Row ${rowNum}: ${rowError.message}`);
+                }
+            }
+        }
+
+        // combine pre-validation errors and any runtime creation errors for reporting
+        const allErrors = [...validationErrors, ...errors];
+
+        return res.status(201).json({
+            message: "Bulk school import completed",
+            createdCount: createdSchools.length,
+            errors: allErrors
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Unable to import bulk schools" });
     }
 }
 
@@ -324,4 +497,4 @@ const updateSchool = async (req, res) => {
     }
 }
 
-module.exports = { schools: createSchool, updateSchool }
+module.exports = { schools: createSchool, bulkSchools: createBulkSchools, updateSchool }

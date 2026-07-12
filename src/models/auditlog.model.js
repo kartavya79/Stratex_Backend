@@ -91,6 +91,7 @@ const normalizeLegacyAction = (action, module, remarks) => {
     },
     School: {
       CREATE: "SCHOOL_CREATED",
+      BULK_CREATE: "SCHOOL_CREATED",
       UPDATE: "SCHOOL_UPDATED",
       DELETE: "SCHOOL_DELETED",
       SCHOOL_CREATION_FAILED: "SCHOOL_CREATED",
@@ -99,6 +100,7 @@ const normalizeLegacyAction = (action, module, remarks) => {
     },
     Program: {
       CREATE: "PROGRAM_CREATED",
+      BULK_CREATE: "PROGRAM_CREATED",
       UPDATE: "PROGRAM_UPDATED",
       DELETE: "PROGRAM_DELETED",
       PROGRAM_CREATION_FAILED: "PROGRAM_CREATED",
@@ -125,6 +127,7 @@ const normalizeLegacyAction = (action, module, remarks) => {
     },
     Subject: {
       CREATE: "SUBJECT_CREATED",
+      BULK_CREATE: "SUBJECT_CREATED",
       UPDATE: "SUBJECT_UPDATED",
       DELETE: "SUBJECT_DELETED",
       SUBJECT_CREATION_FAILED: "SUBJECT_CREATED",
