@@ -6,7 +6,7 @@ const notificationModel = require("../models/notificaton.Model");
 const userNotificationModel = require("../models/userNotificaton.model");
 const { resolveAudience } = require("../services/notification/audience.service");
 const notificationCache = require("../services/notification/notificationCache.service");
-const { noticeAttachment } = require("../services/storage.service");
+const { noticeAttachment, deleteFile } = require("../services/storage.service");
 const {
   createListController,
   createGetByIdController,
@@ -72,6 +72,18 @@ const normalizeNoticeAudience = (value) => {
     .filter(Boolean);
 };
 
+const normalizeAudienceCriteria = (value) => {
+  if (!value) return null;
+
+  if (typeof value === "object") return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
 const toNotificationAudience = (audience = []) => {
   if (!audience.length || audience.includes("all")) {
     return { allUsers: true };
@@ -100,7 +112,7 @@ const buildAttachmentPayload = async (file) => {
 const createNoticeNotification = async ({ notice, req, session }) => {
   if (notice.status !== "published") return { recipientCount: 0 };
 
-  const audience = toNotificationAudience(notice.audience);
+  const audience = notice.audienceCriteria || toNotificationAudience(notice.audience);
   const { users, count } = await resolveAudience(audience, session);
 
   if (!count) {
@@ -124,7 +136,7 @@ const createNoticeNotification = async ({ notice, req, session }) => {
         title: notice.title,
         message: notice.content,
         type: "notice",
-        priority: "normal",
+        priority: notice.priority || "normal",
         senderId: req.user._id,
         createdBy: req.user._id,
         audience,
@@ -170,6 +182,7 @@ const createNotice = async (req, res) => {
 
   try {
     const audience = normalizeNoticeAudience(req.body.audience);
+    const audienceCriteria = normalizeAudienceCriteria(req.body.audienceCriteria);
     const attachment = await buildAttachmentPayload(req.file);
 
     session.startTransaction();
@@ -180,7 +193,9 @@ const createNotice = async (req, res) => {
           title: req.body.title,
           content: req.body.content,
           audience,
+          audienceCriteria: audienceCriteria || toNotificationAudience(audience),
           status: req.body.status || "published",
+          priority: req.body.priority || "normal",
           publishedAt: req.body.publishedAt || Date.now(),
           ...(attachment ? { attachment } : {}),
           createdBy: req.user._id,
@@ -245,6 +260,31 @@ const updateNotice = async (req, res) => {
 
     if (req.body.audience !== undefined) {
       update.audience = normalizeNoticeAudience(req.body.audience);
+    }
+
+    if (req.body.audienceCriteria !== undefined) {
+      update.audienceCriteria = normalizeAudienceCriteria(req.body.audienceCriteria);
+    } else if (req.body.audience !== undefined) {
+      update.audienceCriteria = toNotificationAudience(update.audience);
+    }
+
+    if (req.body.removeAttachment === "true") {
+      if (notice.attachment?.fileId) {
+        try {
+          await deleteFile(notice.attachment.fileId);
+        } catch (err) {
+          console.error("Notice attachment delete failed:", err.message);
+        }
+      }
+
+      update.attachment = {
+        url: null,
+        fileId: null,
+        name: null,
+        fileType: null,
+        size: null,
+      };
+      delete update.removeAttachment;
     }
 
     if (req.file) {

@@ -22,6 +22,7 @@ router.post(
     title: { required: true, minLength: 2 },
     content: { required: true, minLength: 2 },
     status: { enum: ["draft", "published", "archived", "inactive"] },
+    priority: { enum: ["low", "normal", "high", "urgent"] },
   }),
   noticeController.createNotice
 );
@@ -34,6 +35,7 @@ router.put(
     title: { minLength: 2 },
     content: { minLength: 2 },
     status: { enum: ["draft", "published", "archived", "inactive"] },
+    priority: { enum: ["low", "normal", "high", "urgent"] },
   }),
   noticeController.updateNotice
 );

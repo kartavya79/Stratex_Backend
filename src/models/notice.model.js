@@ -17,10 +17,19 @@ const noticeSchema = new mongoose.Schema(
       enum: ["superAdmin", "schoolAdmin", "faculty", "coordinator", "student", "examCell", "all"],
       default: ["all"]
     },
+    audienceCriteria: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
     status: {
       type: String,
       enum: ["draft", "published", "archived", "inactive"],
       default: "published"
+    },
+    priority: {
+      type: String,
+      enum: ["low", "normal", "high", "urgent"],
+      default: "normal"
     },
     publishedAt: {
       type: Date,
