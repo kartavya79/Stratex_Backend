@@ -12,6 +12,11 @@ const noticeSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    category: {
+      type: String,
+      enum: ["academic", "examinations", "events", "general", "holidays", "administrative", "urgent"],
+      default: "general"
+    },
     audience: {
       type: [String],
       enum: ["superAdmin", "schoolAdmin", "faculty", "coordinator", "student", "examCell", "all"],
@@ -19,6 +24,11 @@ const noticeSchema = new mongoose.Schema(
     },
     audienceCriteria: {
       type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "School",
       default: null
     },
     status: {
@@ -57,6 +67,18 @@ const noticeSchema = new mongoose.Schema(
         default: null
       }
     },
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
+    clearedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"

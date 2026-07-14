@@ -5,7 +5,8 @@ const validate = require("../middlewares/validate.middleware");
 const schoolModel = require("../models/school.model");
 const {
   schools: createSchool,
-  updateSchool
+  updateSchool,
+  bulkSchools
 } = require("../controllers/acadmicgroups/school.controller");
 const {
   createListController,
@@ -69,6 +70,7 @@ router.put(
   }),
   updateSchool
 );
+router.post("/bulk", authMiddleware.chkUser, upload.single("file"), bulkSchools);
 router.delete("/:id", authMiddleware.chkUser, validate.objectIdParam("id"), createDeleteController(schoolModel, options));
 
 module.exports = router;

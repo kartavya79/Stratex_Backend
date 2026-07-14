@@ -9,6 +9,7 @@ const {
     generateProgramSemesters
 } = require("../../services/academic/semesterGeneration.service");
 const { sendError, sendSuccess } = require("../../utils/apiResponse");
+const { parseCsvBuffer } = require("../../utils/csvParser");
 
 const normalizeProgramCode = (code) =>
     code
@@ -302,6 +303,197 @@ const createProgram = async (req, res) => {
     }
 };
 
+const createBulkPrograms = async (req, res) => {
+        try {
+            const allowedRoles = ["superAdmin", "schoolAdmin"];
+
+            if (!req.user.roles.some((role) => allowedRoles.includes(role))) {
+                return res.status(403).json({ message: "Unauthorized" });
+            }
+
+            if (!req.file || !req.file.buffer) {
+                return res.status(400).json({ message: "CSV file is required" });
+            }
+
+            const { rows, errors: parseErrors } = parseCsvBuffer(req.file.buffer);
+
+            if (parseErrors.length) {
+                return res.status(400).json({ message: "Invalid CSV data", errors: parseErrors });
+            }
+
+            const FAILURE_THRESHOLD_PERCENT = Number(process.env.BULK_FAILURE_THRESHOLD_PERCENT || 10);
+            const totalRows = rows.length;
+            const validationErrors = [];
+            const toCreate = [];
+
+            // validation pass
+            for (let index = 0; index < rows.length; index += 1) {
+                const rowNumber = index + 2;
+                const row = rows[index];
+                const name = String(row.name || "").trim();
+                const code = String(row.code || "").trim();
+                const schoolIdRaw = String(row.schoolid || "").trim();
+                const schoolSlug = String(row.schoolslug || "").trim().toLowerCase();
+                const description = row.description ? String(row.description).trim() : null;
+                const duration = Number(row.duration);
+                const degreeType = String(row.degreetype || "").trim().toUpperCase();
+                const status = String(row.status || "active").trim().toLowerCase();
+
+                if (!name) {
+                    validationErrors.push(`Row ${rowNumber}: Program name is required`);
+                    continue;
+                }
+
+                if (!schoolIdRaw && !schoolSlug) {
+                    validationErrors.push(`Row ${rowNumber}: schoolId or schoolSlug is required`);
+                    continue;
+                }
+
+                if (!Number.isInteger(duration) || duration <= 0) {
+                    validationErrors.push(`Row ${rowNumber}: Duration must be a positive integer`);
+                    continue;
+                }
+
+                const allowedDegreeTypes = ["UG", "PG", "DIPLOMA", "PHD"];
+                if (!allowedDegreeTypes.includes(degreeType)) {
+                    validationErrors.push(`Row ${rowNumber}: degreeType must be UG, PG, Diploma or PhD`);
+                    continue;
+                }
+
+                if (!["active", "inactive"].includes(status)) {
+                    validationErrors.push(`Row ${rowNumber}: Status must be either active or inactive`);
+                    continue;
+                }
+
+                let school = null;
+                if (schoolIdRaw && mongoose.Types.ObjectId.isValid(schoolIdRaw)) {
+                    school = await schoolModel.findById(schoolIdRaw);
+                }
+                if (!school && schoolSlug) {
+                    school = await schoolModel.findOne({ slug: schoolSlug });
+                }
+
+                if (!school) {
+                    validationErrors.push(`Row ${rowNumber}: School not found using schoolId or schoolSlug`);
+                    continue;
+                }
+
+                if (req.user.roles.includes("schoolAdmin") && req.user.schoolId.toString() !== school._id.toString()) {
+                    validationErrors.push(`Row ${rowNumber}: School Admin can only import programs for their own school`);
+                    continue;
+                }
+
+                const normalizedCode = code ? normalizeProgramCode(code) : "";
+
+                try {
+                    const existingProgram = await programModel.findOne({
+                        schoolId: school._id,
+                        $or: [{ name }, { code: normalizedCode || undefined }].filter(Boolean)
+                    });
+
+                    if (existingProgram) {
+                        validationErrors.push(`Row ${rowNumber}: Program already exists in this school`);
+                        continue;
+                    }
+                } catch (lookupError) {
+                    validationErrors.push(`Row ${rowNumber}: ${lookupError.message}`);
+                    continue;
+                }
+
+                let programCode = normalizedCode;
+                try {
+                    if (programCode) {
+                        await assertProgramCodeAvailable({ code: programCode, schoolId: school._id });
+                    } else {
+                        programCode = await generateUniqueProgramCode({ school, schoolId: school._id, name });
+                    }
+                } catch (error) {
+                    validationErrors.push(`Row ${rowNumber}: ${error.message}`);
+                    continue;
+                }
+
+                toCreate.push({ name, code: programCode, schoolId: school._id, description, status, duration, degreeType });
+            }
+
+            const failingCount = validationErrors.length;
+            const failingPercent = totalRows === 0 ? 0 : (failingCount / totalRows) * 100;
+
+            if (failingPercent > FAILURE_THRESHOLD_PERCENT) {
+                return res.status(400).json({ message: `Bulk import rejected: ${failingPercent.toFixed(2)}% rows failed validation which exceeds threshold of ${FAILURE_THRESHOLD_PERCENT}%`, errors: validationErrors });
+            }
+
+            // creation pass
+            const createdPrograms = [];
+            const errors = [];
+
+            for (let i = 0; i < toCreate.length; i += 1) {
+                const item = toCreate[i];
+                const session = await mongoose.startSession();
+
+                try {
+                    session.startTransaction();
+
+                    const [program] = await programModel.create([
+                        {
+                            name: item.name,
+                            code: item.code,
+                            schoolId: item.schoolId,
+                            description: item.description,
+                            status: item.status,
+                            duration: item.duration,
+                            degreeType: item.degreeType,
+                            createdBy: req.user._id
+                        }
+                    ], { session, ordered: true });
+
+                    await generateProgramSemesters({
+                        programId: program._id,
+                        duration: item.duration,
+                        userId: req.user._id,
+                        session
+                    });
+
+                    await auditLogModel.create([
+                        {
+                            performedBy: req.user._id,
+                            action: "BULK_CREATE",
+                            module: "Program",
+                            targetId: program._id,
+                            targetName: program.name,
+                            remarks: "Program created through bulk import",
+                            ipAddress: req.ip,
+                            userAgent: req.headers["user-agent"]
+                        }
+                    ], { session, ordered: true });
+
+                    await session.commitTransaction();
+                    createdPrograms.push(program);
+                } catch (rowError) {
+                    await session.abortTransaction();
+                    console.error(rowError);
+                    if (rowError.code === 11000) {
+                        errors.push(`Row ${i + 2}: Duplicate program or code detected`);
+                    } else {
+                        errors.push(`Row ${i + 2}: ${rowError.message}`);
+                    }
+                } finally {
+                    await session.endSession();
+                }
+            }
+
+            const allErrors = [...validationErrors, ...errors];
+
+            return res.status(201).json({
+                message: "Bulk program import completed",
+                createdCount: createdPrograms.length,
+                errors: allErrors
+            });
+        } catch (err) {
+            console.error(err);
+            return res.status(500).json({ message: "Unable to import bulk programs" });
+        }
+};
+
 const updateProgram = async (req, res) => {
     try {
         const allowedRoles = ["superAdmin", "schoolAdmin"];
@@ -485,6 +677,7 @@ const deleteProgram = async (req, res) => {
 
 module.exports = {
     programs: createProgram,
+    bulkPrograms: createBulkPrograms,
     updateProgram,
     deleteProgram
 };

@@ -144,6 +144,29 @@ const createNotification = async (req, res) => {
     await session.commitTransaction();
     notificationCache.invalidate();
 
+    // Emit real-time notifications to connected users via Socket.IO (best-effort)
+    try {
+      const socketService = require("../../services/socket.service");
+      const payload = { notification: notification, deliveredAt: now };
+
+      // Emit in microtask batches to avoid blocking the response
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < users.length; i += BATCH_SIZE) {
+        const chunk = users.slice(i, i + BATCH_SIZE);
+        setImmediate(() => {
+          chunk.forEach((u) => {
+            try {
+              socketService.emitToUser(String(u._id), 'notification:new', payload);
+            } catch (e) {
+              // ignore per-user emit failures
+            }
+          });
+        });
+      }
+    } catch (emitErr) {
+      console.error('Notification emit failed:', emitErr);
+    }
+
     await writeNotificationAudit(req, {
       action: "CREATE_NOTIFICATION",
       targetId: notification._id,

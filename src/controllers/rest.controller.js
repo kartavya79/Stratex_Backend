@@ -28,11 +28,16 @@ const writeAudit = async (req, action, module, targetId, targetName, remarks) =>
 const createListController = (model, options = {}) => async (req, res) => {
   try {
     const { page, limit, skip } = buildPagination(req.query, options.maxLimit);
-    const filter = {
+    const baseFilters = options.getBaseFilters ? await options.getBaseFilters(req) : {};
+    const requestFilters = {
       ...buildAllowedFilters(req.query, options.filterMap),
       ...buildSearchFilter(req.query.search, options.searchFields),
-      ...(options.getExtraFilters ? options.getExtraFilters(req.query) : {}),
+      ...(options.getExtraFilters ? options.getExtraFilters(req.query, req) : {}),
     };
+    const filter =
+      Object.keys(baseFilters).length && Object.keys(requestFilters).length
+        ? { $and: [baseFilters, requestFilters] }
+        : { ...baseFilters, ...requestFilters };
     const sort = buildSort(req.query, options.allowedSortFields);
     const total = await model.countDocuments(filter);
 
@@ -49,6 +54,9 @@ const createListController = (model, options = {}) => async (req, res) => {
     }
 
     const documents = await request;
+    const responseDocuments = options.mapDocuments
+      ? await options.mapDocuments(req, documents)
+      : documents;
     const pagination = buildPaginationMeta({
       page,
       limit,
@@ -60,7 +68,7 @@ const createListController = (model, options = {}) => async (req, res) => {
       res,
       200,
       `${options.resourceName || "Records"} fetched successfully`,
-      documents,
+      responseDocuments,
       pagination
     );
   } catch (err) {

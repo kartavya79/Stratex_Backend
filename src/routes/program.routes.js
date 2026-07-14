@@ -1,11 +1,13 @@
 const express = require("express");
+const multer = require("multer");
 const authMiddleware = require("../middlewares/auth.middleware");
 const validate = require("../middlewares/validate.middleware");
 const programModel = require("../models/program.model");
 const {
   programs: createProgram,
   updateProgram,
-  deleteProgram
+  deleteProgram,
+  bulkPrograms
 } = require("../controllers/acadmicgroups/program.controller");
 const {
   createListController,
@@ -13,6 +15,12 @@ const {
 } = require("../controllers/rest.controller");
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  }
+});
 
 const options = {
   resourceName: "Program",
@@ -62,6 +70,7 @@ router.put(
   }),
   updateProgram
 );
+router.post("/bulk", authMiddleware.chkUser, upload.single("file"), bulkPrograms);
 router.delete("/:id", authMiddleware.chkUser, validate.objectIdParam("id"), deleteProgram);
 
 module.exports = router;
