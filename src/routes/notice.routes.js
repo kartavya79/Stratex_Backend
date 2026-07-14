@@ -13,6 +13,8 @@ const upload = multer({
 });
 
 router.get("/", authMiddleware.chkUser, noticeController.getNotices);
+router.patch("/:id/read", authMiddleware.chkUser, validate.objectIdParam("id"), noticeController.markNoticeRead);
+router.patch("/:id/clear", authMiddleware.chkUser, validate.objectIdParam("id"), noticeController.clearNotice);
 router.get("/:id", authMiddleware.chkUser, validate.objectIdParam("id"), noticeController.getNoticeById);
 router.post(
   "/",
