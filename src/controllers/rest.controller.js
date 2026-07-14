@@ -29,6 +29,7 @@ const createListController = (model, options = {}) => async (req, res) => {
   try {
     const { page, limit, skip } = buildPagination(req.query, options.maxLimit);
     const filter = {
+      ...(options.getBaseFilters ? options.getBaseFilters(req) : {}),
       ...buildAllowedFilters(req.query, options.filterMap),
       ...buildSearchFilter(req.query.search, options.searchFields),
       ...(options.getExtraFilters ? options.getExtraFilters(req.query) : {}),
